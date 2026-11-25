@@ -2,7 +2,27 @@
 
 **TÜBİTAK 2209-A & NLP/LLM Dersi Projesi**
 
-1928–1940 yılları arasındaki TBMM tutanaklarını modern Türkçe imla kurallarına göre normalize eden çok katmanlı bir sistem. Ham LLM kullanımının tarihsel metni bozma riskini ortadan kaldırmak için deterministik katmanlar öne konulmuş, her katmanın katkısı ablation çalışmasıyla ölçülmektedir.
+1929–1940 yılları arasındaki TBMM tutanaklarını modern Türkçe imla kurallarına göre normalize eden çok katmanlı bir sistem.
+
+Bu dönem tutanakları Latin harfli yazılmış, ancak imlası henüz standartlaşmamış geçiş dönemi metinleridir. Modern NLP/LLM araçları bu metinleri "bozuk Türkçe" olarak algılar; normalizasyon sistemi bu köprüyü kurar ve metinleri modern araçlarla işlenebilir hale getirir.
+
+Ham LLM kullanımının tarihsel metni bozma riskini azaltmak için deterministik katmanlar öne konulmuş, her katmanın katkısı ablation çalışmasıyla ölçülmektedir.
+
+---
+
+## Neden Zor?
+
+1928-1940 arası metinler Latin harflidir ama yazım henüz standartlaşmamıştır:
+
+| Dönem metni | Modern Türkçe | Sorun türü |
+|-------------|---------------|------------|
+| `aid` | `ait` | ses değişimi |
+| `kânun` | `kanun` | uzun ünlü işareti |
+| `meclisden` | `meclisten` | ek yazımı |
+| `inikad` | `intikat` | Arapça köklü fonetik |
+| `musâvî` / `musavi` / `musavidir` | (aynı sözcük, 3 form) | tutarsız yazım |
+
+Modern LLM'ler bu dönem yazımına neredeyse hiç maruz kalmamış, bu yüzden metni yanlış anlıyor.
 
 ---
 
@@ -11,11 +31,11 @@
 | Katman | Görev |
 |--------|-------|
 | 1. Hafif Ön Temizlik | Sayfa ayraçları, satır sonu tire bölünmeleri |
-| 2. Kural + Dönemsel Sözlük | Emin olunan dönüşümler (*aid → ait*, *kânun → kanun*) |
-| 3. Zeyrek Morfolojik Doğrulama | Doğru sözcükleri kilitler, tanınmayanları şüpheli işaretler |
-| 4. Kısıtlı LLM | Yalnızca şüpheli yerlere dokunur, sıcaklık = 0 |
+| 2. Kural + Dönemsel Sözlük | Dönemin imla kılavuzlarından üretilen emin dönüşümler |
+| 3. Zeyrek Morfolojik Doğrulama | Modern Türkçede geçerli sözcükleri kilitler, bilinmeyenleri şüpheli işaretler |
+| 4. Kısıtlı LLM | Yalnızca şüpheli sözcüklere dokunur, JSON liste döndürür, sıcaklık = 0 |
 
-Sistem 7 farklı varyantla (a–g) karşılaştırılarak her katmanın etkisi bağımsız olarak ölçülmektedir.
+Sistem 7 farklı varyantla (a–g) karşılaştırılarak her katmanın etkisi bağımsız ölçülmektedir.
 
 ---
 
@@ -23,12 +43,13 @@ Sistem 7 farklı varyantla (a–g) karşılaştırılarak her katmanın etkisi b
 
 ```
 proje/
-├── data/
-│   ├── raw/          # Ham indirilen veri
-│   ├── pool/         # Etiketlenmemiş havuz
+├── data/             # .gitignore'da — kullanıcı kendisi üretir
+│   ├── raw/          # Ham indirilen veri (oturumlar.jsonl)
+│   ├── pool/         # Etiketlenmemiş oturum havuzu
 │   ├── dev/          # Geliştirme seti
-│   └── test_LOCKED/  # Kilitli test seti (.gitignore'da)
-├── guide/            # Normalizasyon kılavuzu
+│   └── test_LOCKED/  # Kilitli test seti (asla repoya girmez)
+├── notebooks/        # Her adım için Jupyter notebook
+├── guide/            # Normalizasyon kılavuzu ve doğrulama listeleri
 ├── src/              # Kaynak kod
 ├── tests/            # Birim testleri
 ├── results/          # Deney çıktıları
@@ -49,7 +70,7 @@ python -c "import nltk; nltk.download('punkt_tab')"
 ### Veriyi İndir
 
 `data/` dizini `.gitignore`'da — repoda bulunmaz. Aşağıdaki komut veriyi
-Hugging Face'ten indirip `data/raw/oturumlar.jsonl` olarak kaydeder:
+Hugging Face'ten indirip `data/raw/oturumlar.jsonl` olarak kaydeder (~5-10 dk):
 
 ```bash
 python src/adim1_veri_indir.py
@@ -71,7 +92,7 @@ pytest tests/ -v
 | Adım | Konu | Sorumlu | Durum |
 |------|------|---------|-------|
 | 0 | Ortam ve repo kurulumu | MYY | ✅ |
-| 1 | Veri indirme + tarihlendirme | MYY | ✅ |
+| 1 | Veri indirme + tarihlendirme (1316/1316) | MYY | ✅ |
 | 2 | Oturum bazlı bölme (test/dev/havuz) | MYY | ⬜ |
 | 3 | Cümle bölme + seçim | MYY | ⬜ |
 | 4 | Normalizasyon kılavuzu + pilot (κ ≥ 0,80) | YY + Danışman | ⬜ |
@@ -100,4 +121,4 @@ pytest tests/ -v
 
 ## Veri Seti
 
-[GNACT — boun-tabilab/turkish_parliamentary_data](https://huggingface.co/datasets/boun-tabilab/turkish_parliamentary_data) · Lisans: CC BY-NC-SA 4.0
+[boun-tabilab/turkish_parliamentary_data](https://huggingface.co/datasets/boun-tabilab/turkish_parliamentary_data) · Lisans: CC BY-NC-SA 4.0

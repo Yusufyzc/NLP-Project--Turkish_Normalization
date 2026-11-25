@@ -3,24 +3,28 @@ import zeyrek
 analyzer = zeyrek.MorphAnalyzer()
 
 
-def test_zeyrek_bilinen_sozcuk():
-    sonuclar = analyzer.lemmatize("mekteplerinde")
-    assert len(sonuclar) > 0, "Zeyrek bilinen sözcüğü çözümleyemedi"
+def _is_oov(word: str) -> bool:
+    """analyze() çıktısında tüm parse'lar 'Unk' lemma dönüyorsa OOV."""
+    sonuclar = analyzer.analyze(word)
+    all_parses = [p for parses in sonuclar for p in parses]
+    if not all_parses:
+        return True
+    return all(p.lemma == "Unk" for p in all_parses)
+
+
+def test_zeyrek_bilinen_cekimli():
+    # Çekimli bilinen sözcük OOV değil
+    assert not _is_oov("mekteplerinde")
+
+
+def test_zeyrek_bilinen_cekimsiz():
+    # Çekimsiz (yalın) bilinen sözcükler lemma==girdi olsa da OOV değil
+    assert not _is_oov("kitap")
+    assert not _is_oov("ev")
+    assert not _is_oov("okul")
 
 
 def test_zeyrek_oov():
-    # OOV durumunda Zeyrek lemma olarak sözcüğün kendisini döndürür: lemma == girdi
-    sonuclar = analyzer.lemmatize("mekteblerinde")
-    token, lemmalar = sonuclar[0]
-    assert token == "mekteblerinde"
-    assert lemmalar == ["mekteblerinde"], (
-        f"OOV beklentisi: lemma == girdi, gelen: {sonuclar}"
-    )
-
-
-def test_zeyrek_oov_formati():
-    """OOV durumunun tam çıktısını görmek için — Adım 10'da buna dayanacağız."""
-    bilinen = analyzer.lemmatize("mekteplerinde")
-    oov = analyzer.lemmatize("mekteblerinde")
-    print(f"\nbilinen → {bilinen}")
-    print(f"oov     → {oov}")
+    # Gerçek OOV: analyze() 'Unk' döndürür
+    assert _is_oov("mekteblerinde")
+    assert _is_oov("uydurmasözcük")

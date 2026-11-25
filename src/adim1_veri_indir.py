@@ -81,10 +81,22 @@ TARIH_SAYISAL = re.compile(
 )
 
 # ---------------------------------------------------------------------------
-# Alt dönem: term 3-4 → "1927-1934",  term 5-6 → "1935-1943"
+# Kapsam ve alt dönem: yıl tabanlı
+#   "erken"  1927-1928  → harf kanunu öncesi, stres testi katmanı
+#   "ana"    1929-1940  → asıl deney verisi
+#   "gec"    1941-1943  → geç dönem yazım değişimi, stres testi katmanı
 # ---------------------------------------------------------------------------
-def _alt_donem(term: int) -> str:
-    return "1927-1934" if term in (3, 4) else "1935-1943"
+def _kapsam_ve_donem(takvim_yil: int | None) -> tuple[str, str]:
+    if takvim_yil is None:
+        return "bilinmiyor", "bilinmiyor"
+    if takvim_yil <= 1928:
+        return "erken", "1927-1928"
+    elif takvim_yil <= 1934:
+        return "ana", "1929-1934"
+    elif takvim_yil <= 1940:
+        return "ana", "1935-1940"
+    else:
+        return "gec", "1941-1943"
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +208,8 @@ def veri_indir_ve_isle():
             "takvim_ay":  tarih["ay"]  if tarih else None,
             "takvim_yil": tarih["yil"] if tarih else None,
             "date_source": kaynak if tarih else "yok",
-            "alt_donem":  _alt_donem(kayit["term"]),
+            "kapsam": None,
+            "alt_donem": None,
             "text": kayit["text"],
         })
 
@@ -212,6 +225,10 @@ def veri_indir_ve_isle():
             k["takvim_gun"] = None
             k["date_source"] = "dönem"
 
+    # Kapsam ve alt dönem: tüm tarih fallback'leri tamamlandıktan sonra hesapla
+    for k in kayitlar:
+        k["kapsam"], k["alt_donem"] = _kapsam_ve_donem(k["takvim_yil"])
+
     # Kapsama raporu
     toplam = len(kayitlar)
     kaynak_sayac: dict[str, int] = {}
@@ -221,6 +238,15 @@ def veri_indir_ve_isle():
     print(f"\nToplam oturum       : {toplam}")
     for kaynak, sayi in sorted(kaynak_sayac.items()):
         print(f"  {kaynak:<18}: {sayi:>4}  ({sayi/toplam*100:.1f}%)")
+
+    kapsam_sayac: dict[str, int] = {}
+    for k in kayitlar:
+        kapsam_sayac[k["kapsam"]] = kapsam_sayac.get(k["kapsam"], 0) + 1
+    print(f"\nKapsam dağılımı:")
+    for kapsam in ["erken", "ana", "gec", "bilinmiyor"]:
+        sayi = kapsam_sayac.get(kapsam, 0)
+        if sayi:
+            print(f"  {kapsam:<12}: {sayi:>4}  ({sayi/toplam*100:.1f}%)")
 
     # JSONL kaydet
     jsonl_yolu = cikti_dizin / "oturumlar.jsonl"
