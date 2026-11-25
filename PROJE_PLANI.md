@@ -375,10 +375,10 @@ def test_katman2(girdi, beklenen):
 
 | Adım | Konu | Sorumlu | Çalışma Takvimi İP | Durum |
 |---|---|---|---|---|
-| 0 | Ortam ve repo | MYY | İP1 | ⬜ |
-| 1 | Veri indirme + tarihlendirme | MYY | İP1 | ⬜ |
-| 2 | Oturum bazlı bölme | MYY (betikle) | İP1 | ⬜ |
-| 3 | Cümle bölme + seçim | MYY (betikle) | İP1 | ⬜ |
+| 0 | Ortam ve repo | MYY | İP1 | ✅ |
+| 1 | Veri indirme + tarihlendirme | MYY | İP1 | ✅ |
+| 2 | Oturum bazlı bölme | MYY (betikle) | İP1 | ✅ |
+| 3 | Cümle bölme + seçim | MYY (betikle) | İP1 | ✅ |
 | 4 | Kılavuz + pilot | YY + Danışman | İP2 | ⬜ |
 | 5 | Dev etiketleme | YY | İP2 | ⬜ |
 | 6 | Test etiketleme + kilit | YY + Danışman | İP2 | ⬜ |

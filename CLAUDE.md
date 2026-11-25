@@ -11,7 +11,7 @@ Projeyi tanımak için önce bu dosyayı oku, sonra `PROJE_PLANI.md`'ye bak.
 TÜBİTAK 2209-A & NLP/LLM dersi kapsamında.
 
 **Veri:** `boun-tabilab/turkish_parliamentary_data` (Hugging Face), `tbmm_only` konfigürasyonu,
-`language == "modern_turkish"`, `term 3–6` → 1316 oturum (kapsam filtresi sonrası: 1929-1940).
+`language == "modern_turkish"`, `term 3–6` → 1316 oturum (kapsam filtresi sonrası: 943 "ana").
 
 **Sistem:** 4 katman (hafif temizlik → regex+sözlük → Zeyrek → kısıtlı LLM).
 7 ablation varyantı (a–g) ile her katmanın katkısı ölçülüyor.
@@ -28,10 +28,15 @@ TÜBİTAK 2209-A & NLP/LLM dersi kapsamında.
 ```
 conda activate nlpLLM   # Python 3.10, D:\anaconda3\envs\nlpLLM
 cd "C:\Users\Yusuf Yazici\Desktop\NLP-Project--Turkish_Normalization"
-pytest tests/ -v        # tüm testleri çalıştır
+pytest tests/ -v        # tüm testleri çalıştır (44 passed)
 ```
 
 **Kurulum notu:** Zeyrek için `python -c "import nltk; nltk.download('punkt_tab')"` gerekli.
+
+**Notebook ortam yönetimi:** `src/ortam.py`
+- `ortam_sec()` — Adım 1 notebook'unda çağrılır, Local/Drive seçimi sorar, `proje_config.json`'a kaydeder
+- `ortam_yukle()` — Adım 2+ notebook'larında çağrılır, config'i okur, `os.chdir` yapar
+- Colab'da Drive seçilirse `/content/drive/MyDrive/NLP-Project--Turkish_Normalization` kullanılır
 
 **Zeyrek OOV tespiti — DOĞRU YÖNTEM:**
 `analyzer.analyze(word)` kullan, `lemma == 'Unk'` kontrolü yap.
@@ -52,9 +57,10 @@ def _is_oov(word):
 ### ✅ Adım 0 — Ortam ve Repo Kurulumu
 
 - Klasör yapısı kuruldu (`data/raw`, `pool`, `dev`, `test_LOCKED`, `src`, `tests`, `guide`, `results`)
-- `data/test_LOCKED/` `.gitignore`'da — repoya girmez
+- `data/` tamamen `.gitignore`'da — repoya girmez
 - `requirements.txt` yazıldı
-- Zeyrek OOV testleri güncellendi: `tests/test_adim0.py` (3 test, `analyze()` + `Unk` yöntemi)
+- `src/ortam.py` — Local/Drive ortam yöneticisi eklendi
+- Zeyrek OOV testleri: `tests/test_adim0.py` (3 test, `analyze()` + `Unk` yöntemi)
 
 ### ✅ Adım 1 — Veri İndirme ve Tarihlendirme
 
@@ -73,63 +79,49 @@ def _is_oov(word):
 }
 ```
 
-**Kapsam alanı (yıl tabanlı):**
-- `"erken"` → 1927-1928 (harf kanunu öncesi, stres testi katmanı)
-- `"ana"`   → 1929-1940 (asıl deney verisi, Adım 2'de bu kullanılır)
-- `"gec"`   → 1941-1943 (geç dönem yazım değişimi, stres testi katmanı)
+**Kapsam dağılımı (gerçek veri):**
+- `"erken"` → 248 oturum (1927-1928)
+- `"ana"`   → 943 oturum (1929-1940) ← asıl deney verisi
+- `"gec"`   → 125 oturum (1941-1943)
 
-**Alt dönem (yıl tabanlı, term'e göre DEĞİL):**
-- `"1927-1928"`, `"1929-1934"`, `"1935-1940"`, `"1941-1943"`
+**Alt dönem (yıl tabanlı):** `"1927-1928"`, `"1929-1934"`, `"1935-1940"`, `"1941-1943"`
 
-**Tarih çıkarma:** 3 format, öncelik sırasıyla:
-1. `regex_yazi` — "17 Şubat 1930", "3 Teşrinievvel 1931" → 997 oturum (%75.8)
-2. `regex_romen` — "15 - XI - 1937", "7. VIII. 1942" → 305 oturum (%23.2)
-3. `regex_sayisal` — "5.1.1929", "31 . 12 . 1928" → 5 oturum (%0.4)
-4. `komşu` — aynı ciltte komşu oturumdan → 9 oturum (%0.7)
+**Tarih çıkarma:** regex_yazi: 997 · regex_romen: 305 · regex_sayisal: 5 · komşu: 9
 
-**Kapsama: 1316/1316 (%100). Dönem fallback hiç kullanılmadı.**
+**Testler:** `tests/test_adim1.py` — 24 test geçiyor.
 
-**Testler:** `tests/test_adim1.py` — 24 test, hepsi geçiyor.
+**Manuel doğrulama:** `guide/dogrulama_adim1.csv` — 30 oturum (tüm 9 komşu + tüm 5 regex_sayisal zorunlu dahil).
 
-**Manuel doğrulama:** `guide/dogrulama_adim1.csv` — 30 oturum:
-- Tüm 9 `komşu` + tüm 5 `regex_sayisal` zorunlu dahil
-- Kalan 16 slot: term'e göre dağılmış
+### ✅ Adım 2 — Oturum Bazlı Bölme
 
-**Önemli notlar:**
-- `language` değeri `"modern_turkish"` (`"tr"` değil)
-- Term 3 Kasım 1927'de başlıyor; 1927-1928 kayıtlar `kapsam="erken"`
-- Beyaz liste (Adım 9) yalnızca bölmeden SONRA ham havuzdan üretilmeli
-- Pilot sayımlar keşif amaçlı, kural kaynağı değil ("bölmeden önce keşif" etiketli)
+**Girdi:** `oturumlar.jsonl` → yalnızca `kapsam=="ana"` (943 oturum)
+**Yöntem:** alt_donem'e göre katmanlı, seed=42, %10 test / %10 dev / %80 havuz
+**Çıktı:** `data/split/test_ids.txt`, `data/split/dev_ids.txt`, `data/split/pool_ids.txt`
+**Testler:** `tests/test_adim2.py` — 4 test geçiyor (kesişim, bütünlük, determinizm, alt dönem).
+
+### ✅ Adım 3 — Cümle Bölme ve Seçim
+
+**Cümle bölücü:** kısaltma duyarlı (Muh., No., M.M. vb.), tablo/sahne notu/ayraç filtresi.
+**Seçim:**
+- Dev: 150 rastgele cümle → `data/dev/dev_cumleler.jsonl`
+- Test: 200 rastgele + 100 zor (şapkalı harf yoğunluğu) → `data/test_LOCKED/test_cumleler_ham.jsonl`
+- Pool: tümü → `data/pool/pool_cumleler.jsonl`
+
+**Zor kriter:** şapkalı harf yoğunluğu (â, î, û) — sistemden bağımsız, deterministik.
+**Testler:** `tests/test_adim3.py` — 13 test geçiyor.
 
 ---
 
 ## Yapılacak Adımlar
 
-### ⬜ Adım 2 — Oturum Bazlı Bölme
+### ⬜ Adım 4 — Kılavuz ve Pilot (YY + Danışman)
 
-`oturumlar.jsonl`'deki oturumları `seed=42` ile **test / dev / ham havuz**'a böl.
-**Yalnızca `kapsam == "ana"` (1929-1940) kayıtları** kullan.
-Alt döneme (`"1929-1934"` / `"1935-1940"`) göre katmanlı örnekleme yap.
-Çıktı: 3 ayrı ID listesi dosyası.
-
-**Test:** Üç kümenin kesişimi boş, aynı seed ile aynı bölme çıkıyor.
-
-### ⬜ Adım 3 — Cümle Bölme ve Seçim
-
-Kısaltmalara dikkat eden cümle bölücü yaz ("Muh.", "No." vb.).
-Tablo satırlarını, içindekiler satırlarını, "(Alkışlar)" gibi sahne notlarını ele.
-Oturum başına en fazla N cümle al (çeşitlilik için).
-- **Test:** 200 rastgele + 100 zor cümle (sistemden bağımsız ölçütle — Zeyrek OOV değil)
-- **Dev:** 150 cümle
-Seçimi betik yapsın, kimse okumasın.
-
-### ⬜ Adım 4 — Kılavuz ve Pilot
-
+Şablon: `guide/kilavuz_adim4_sablonu.md`
 Normalizasyon karar ağacını yazılı kurallara çevir.
-İki kodlayıcı dev'den 30 cümleyi bağımsız normalize etsin.
-**Hedef: Cohen κ ≥ 0.80** (sözcük düzeyinde "değişti/değişmedi", güven aralığıyla raporla)
+İki kodlayıcı `data/dev/dev_cumleler.jsonl`'den 30 cümleyi bağımsız normalize etsin.
+**Hedef: Cohen κ ≥ 0.80** (sözcük düzeyinde, güven aralığıyla raporla)
 
-### ⬜ Adım 5 — Dev Seti Etiketleme
+### ⬜ Adım 5 — Dev Seti Etiketleme (YY)
 
 JSONL formatı:
 ```json
@@ -137,47 +129,38 @@ JSONL formatı:
 ```
 Doğrulayıcı betik: her değişiklik izinli kategorilerden biri olmalı.
 
-### ⬜ Adım 6 — Test Seti Kilitleme
+### ⬜ Adım 6 — Test Seti Kilitleme (YY + Dr. Kadir YILMAZ)
 
 Kural yazmayan kişiler etiketlesin. 50 cümlede çift kodlayıcı κ.
 SHA-256 özeti kaydet, şifreli zip'e koy, **proje klasörü dışında** sakla, şifre danışmanda kalsın.
-Test cümlelerini üreten betik çıktıyı yalnızca şifreli dosyaya yazsın, terminale/log'a basmasın.
+Test betikleri çıktıyı yalnızca şifreli dosyaya yazsın, terminale/log'a basmasın.
 
 ### ⬜ Adım 7 — Ölçüm Kodu (sistemden ÖNCE)
 
 Metrikler: CER, WER (`jiwer`), chrF (`sacrebleu`), P/R/F0.5, ADO.
 
-**ADO — sözcük düzeyinde tanım:**
+**ADO — sözcük düzeyinde:**
 ```
-ADO = (zaten_dogru_sozcuklerden_degistirilen) / (zaten_dogru_sozcuk_sayisi) × 100
-    = N_sozcuk(girdi==ref AND çıktı!=ref) / N_sozcuk(girdi==ref) × 100
+ADO = N_sozcuk(girdi==ref AND çıktı!=ref) / N_sozcuk(girdi==ref) × 100
 ```
-Sözcük hizalaması gerekiyor (`difflib`). Birim testleri elle hesaplanmış örneklerle.
+Sözcük hizalaması: `difflib`. Birim testleri elle hesaplanmış örneklerle.
 
 ### ⬜ Adım 8 — Katman 1: Hafif Ön Temizlik → Varyant (b)
 
 `===== PAGE n =====` ayraçları, markdown tablo kalıntıları, satır sonu tireler.
-**Test:** `Cumhu-\nriyet` → `Cumhuriyet`, gerçek tireli bileşikler korunuyor.
 
 ### ⬜ Adım 9 — Katman 2: Regex + Dönemsel Sözlük → Varyant (c)
 
-Beyaz listeyi **bölmeden sonra** yalnızca ham havuzdan üret (imla kılavuzlarından da).
-Alt dönem ve sözcük türü parametre olsun.
-**Kritik testler:** `aid→ait`, `Ahmed→Ahmet`, `kânun→kanun` ✓; `ad→ad`, `kitabı→kitabı` ✗ (dokunulmamalı).
+Beyaz listeyi **bölmeden sonra** yalnızca `data/pool/` havuzundan üret.
+**Kritik testler:** `aid→ait`, `Ahmed→Ahmet`, `kânun→kanun` ✓; `ad→ad`, `kitabı→kitabı` ✗
 
 ### ⬜ Adım 10 — Katman 3: Zeyrek Kilitleme
 
-Her sözcük: **kilitli** (Zeyrek tanıyor) veya **şüpheli** (OOV).
-OOV tespiti: `analyzer.analyze()` + `lemma == "Unk"` (çekimsiz sözcük tuzağına dikkat — CLAUDE.md ortam bölümüne bak).
+OOV tespiti: `analyzer.analyze()` + `lemma == "Unk"` (çekimsiz sözcük tuzağına dikkat).
 
 ### ⬜ Adım 11 — Katman 4: Kısıtlı LLM → Varyantlar (d)–(g)
 
-LLM düzeltilmiş metin değil **JSON liste** döndürsün:
-```json
-{"duzeltmeler": [{"index": 4, "eski": "inikad", "yeni": "inikat"}]}
-```
-Sıcaklık=0, sabit model sürümü. Tüm yanıtlar diske önbelleğe alınsın.
-Kilitli sözcüklere yapılan değişiklikler kodla otomatik geri alınsın.
+LLM JSON liste döndürsün. Sıcaklık=0, önbellek, kilitli sözcük koruması.
 
 ### ⬜ Adım 12 — Dev'de Tam Ablation
 
@@ -185,11 +168,11 @@ Kilitli sözcüklere yapılan değişiklikler kodla otomatik geri alınsın.
 
 ### ⬜ Adım 13 — Dondurma ve Tek Test Koşusu
 
-`git tag v1.0-final` → test setinin şifresi açılır → **bir kez** çalıştırılır.
+`git tag v1.0-final` → şifre açılır → **bir kez** çalıştırılır.
 
 ### ⬜ Adım 14 — Hata Analizi + Zenodo
 
-Nitel hata taksonomisi. CC BY-NC-SA 4.0 ile Zenodo'ya yükle (DOI al).
+Nitel hata taksonomisi. CC BY-NC-SA 4.0 ile Zenodo'ya yükle.
 
 ---
 
@@ -197,14 +180,29 @@ Nitel hata taksonomisi. CC BY-NC-SA 4.0 ile Zenodo'ya yükle (DOI al).
 
 ```
 src/
-  adim1_veri_indir.py        — veri indirme + tarihlendirme (Adım 1)
-  adim1_dogrulama_listesi.py — 30 oturumluk PDF doğrulama listesi
+  ortam.py               — Local/Drive ortam yöneticisi
+  adim1_veri_indir.py    — veri indirme + tarihlendirme
+  adim1_dogrulama_listesi.py
+  adim2_bolme.py         — oturum bazlı bölme (seed=42)
+  adim3_cumle_sec.py     — cümle bölücü + seçici
 tests/
-  test_adim0.py              — Zeyrek OOV testleri (3 test, analyze()+Unk yöntemi)
-  test_adim1.py              — Tarih çıkarma testleri (24 test)
+  test_adim0.py          — Zeyrek OOV (3 test)
+  test_adim1.py          — tarih çıkarma (24 test)
+  test_adim2.py          — bölme doğruluğu (4 test)
+  test_adim3.py          — cümle bölücü (13 test)
+notebooks/
+  adim1_veri_indir.ipynb
+  adim2_bolme.ipynb
+  adim3_cumle_sec.ipynb
 data/raw/
-  oturumlar.jsonl            — 1316 oturum, kapsam + alt_donem bilgisiyle
-  tarih_raporu.csv           — yıl bazında oturum sayıları
+  oturumlar.jsonl        — 1316 oturum (erken:248, ana:943, gec:125)
+  tarih_raporu.csv
+data/split/              — test/dev/pool ID listeleri
+data/dev/                — dev_cumleler.jsonl (150 cümle)
+data/pool/               — pool_cumleler.jsonl
+data/test_LOCKED/        — test_cumleler_ham.jsonl (300 cümle, henüz etiketlenmedi)
 guide/
-  dogrulama_adim1.csv        — 30 oturumun PDF doğrulama listesi
+  dogrulama_adim1.csv
+  kilavuz_adim4_sablonu.md
+proje_config.json        — ortam.py tarafından üretilir (Local/Drive yolu)
 ```

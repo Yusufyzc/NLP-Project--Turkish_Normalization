@@ -69,11 +69,18 @@ python -c "import nltk; nltk.download('punkt_tab')"
 
 ### Veriyi İndir
 
-`data/` dizini `.gitignore`'da — repoda bulunmaz. Aşağıdaki komut veriyi
-Hugging Face'ten indirip `data/raw/oturumlar.jsonl` olarak kaydeder (~5-10 dk):
+`data/` dizini `.gitignore`'da — repoda bulunmaz.
+
+**Notebook ile (önerilen):** `notebooks/adim1_veri_indir.ipynb` dosyasını aç.
+İlk hücre Local veya Google Drive seçimi sorar ve `proje_config.json`'a kaydeder.
+Sonraki adımlar (`adim2_bolme.ipynb`, `adim3_cumle_sec.ipynb`) bu config'i otomatik okur.
+
+**Betik ile:**
 
 ```bash
 python src/adim1_veri_indir.py
+python src/adim2_bolme.py
+python src/adim3_cumle_sec.py
 ```
 
 Kaynak: [`boun-tabilab/turkish_parliamentary_data`](https://huggingface.co/datasets/boun-tabilab/turkish_parliamentary_data)
@@ -82,7 +89,7 @@ Kaynak: [`boun-tabilab/turkish_parliamentary_data`](https://huggingface.co/datas
 Testleri çalıştır:
 
 ```bash
-pytest tests/ -v
+pytest tests/ -v   # 44 test, hepsi geçmeli
 ```
 
 ---
@@ -93,8 +100,8 @@ pytest tests/ -v
 |------|------|---------|-------|
 | 0 | Ortam ve repo kurulumu | MYY | ✅ |
 | 1 | Veri indirme + tarihlendirme (1316/1316) | MYY | ✅ |
-| 2 | Oturum bazlı bölme (test/dev/havuz) | MYY | ⬜ |
-| 3 | Cümle bölme + seçim | MYY | ⬜ |
+| 2 | Oturum bazlı bölme (test/dev/havuz) | MYY | ✅ |
+| 3 | Cümle bölme + seçim | MYY | ✅ |
 | 4 | Normalizasyon kılavuzu + pilot (κ ≥ 0,80) | YY + Danışman | ⬜ |
 | 5 | Dev seti etiketleme + doğrulayıcı | YY | ⬜ |
 | 6 | Test seti etiketleme + kilitleme | YY + Danışman | ⬜ |
