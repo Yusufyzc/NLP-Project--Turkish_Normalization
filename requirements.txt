@@ -1,0 +1,7 @@
+datasets
+zeyrek
+jiwer
+sacrebleu
+scipy
+pandas
+pytest
