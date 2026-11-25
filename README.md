@@ -46,6 +46,18 @@ pip install -r requirements.txt
 python -c "import nltk; nltk.download('punkt_tab')"
 ```
 
+### Veriyi İndir
+
+`data/` dizini `.gitignore`'da — repoda bulunmaz. Aşağıdaki komut veriyi
+Hugging Face'ten indirip `data/raw/oturumlar.jsonl` olarak kaydeder:
+
+```bash
+python src/adim1_veri_indir.py
+```
+
+Kaynak: [`boun-tabilab/turkish_parliamentary_data`](https://huggingface.co/datasets/boun-tabilab/turkish_parliamentary_data)
+(`tbmm_only` konfigürasyonu, `language == "modern_turkish"`, term 3–6)
+
 Testleri çalıştır:
 
 ```bash
@@ -59,7 +71,7 @@ pytest tests/ -v
 | Adım | Konu | Sorumlu | Durum |
 |------|------|---------|-------|
 | 0 | Ortam ve repo kurulumu | MYY | ✅ |
-| 1 | Veri indirme + tarihlendirme | MYY | ⬜ |
+| 1 | Veri indirme + tarihlendirme | MYY | ✅ |
 | 2 | Oturum bazlı bölme (test/dev/havuz) | MYY | ⬜ |
 | 3 | Cümle bölme + seçim | MYY | ⬜ |
 | 4 | Normalizasyon kılavuzu + pilot (κ ≥ 0,80) | YY + Danışman | ⬜ |

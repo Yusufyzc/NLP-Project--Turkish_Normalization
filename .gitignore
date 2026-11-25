@@ -1,4 +1,12 @@
+# Kilitli test seti — asla repoya girmez
 data/test_LOCKED/
+
+# İndirilen / türetilmiş veriler — kullanıcı adim1_veri_indir.py ile üretir
+data/raw/
+data/pool/
+data/dev/
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
